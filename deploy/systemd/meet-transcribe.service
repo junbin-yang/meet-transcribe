@@ -1,0 +1,45 @@
+[Unit]
+Description=meet-transcribe real-time meeting transcription service
+After=network-online.target postgresql.service
+Wants=network-online.target
+Requires=postgresql.service
+
+[Service]
+Type=simple
+User=meet-transcribe
+Group=meet-transcribe
+WorkingDirectory=/opt/meet-transcribe
+EnvironmentFile=/etc/meet-transcribe/env
+Environment=PYTORCH_CUDA_ALLOC_CONF=expandable_segments:True
+Environment=HF_HOME=/var/lib/meet-transcribe/hf-cache
+Environment=PYTHONUNBUFFERED=1
+Environment=MT_CONFIG_FILE=/etc/meet-transcribe/meet-transcribe.yaml
+
+ExecStart=/opt/meet-transcribe/.venv/bin/python -m uvicorn \
+    meet_transcribe.api.app:app \
+    --host 0.0.0.0 --port 8080 --workers 1
+
+ExecReload=/bin/kill -HUP $MAINPID
+
+KillSignal=SIGTERM
+TimeoutStopSec=30
+
+Restart=on-failure
+RestartSec=5
+StartLimitBurst=5
+StartLimitIntervalSec=60
+
+LimitNOFILE=65536
+
+NoNewPrivileges=true
+ProtectSystem=strict
+ProtectHome=true
+PrivateTmp=true
+ReadWritePaths=/var/lib/meet-transcribe /var/log/meet-transcribe
+
+StandardOutput=journal
+StandardError=journal
+SyslogIdentifier=meet-transcribe
+
+[Install]
+WantedBy=multi-user.target

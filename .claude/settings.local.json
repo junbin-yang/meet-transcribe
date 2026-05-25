@@ -1,0 +1,16 @@
+{
+  "permissions": {
+    "allow": [
+      "WebFetch(domain:github.com)",
+      "WebSearch",
+      "Bash(nvidia-smi)",
+      "Bash(psql --version)",
+      "Bash(py -0)",
+      "Bash(python -V)",
+      "Bash(py -3.11 --version)",
+      "Bash(py -3.12 --version)",
+      "Bash(git --version)",
+      "Bash(git -C /c/Users/28276/Desktop/workspace/coding/meet-transcribe rev-parse --is-inside-work-tree)"
+    ]
+  }
+}

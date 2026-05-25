@@ -1,0 +1,59 @@
+# Python
+__pycache__/
+*.py[cod]
+*$py.class
+*.so
+.Python
+.venv/
+venv/
+env/
+build/
+dist/
+*.egg-info/
+*.egg
+
+# IDE
+.idea/
+.vscode/
+*.swp
+*.swo
+.claude/
+
+# Testing
+.pytest_cache/
+.coverage
+.coverage.*
+htmlcov/
+.tox/
+.mypy_cache/
+.ruff_cache/
+
+# Project
+configs/meet-transcribe.yaml
+configs/*.local.yaml
+deploy/wheelhouse/*.whl
+deploy/wheelhouse/*.tar.gz
+*.log
+*.db
+*.sqlite
+*.sqlite3
+.env
+.env.*
+!.env.example
+
+# Audio samples (don't commit recordings)
+samples/
+*.wav
+*.mp3
+*.opus
+*.webm
+*.flac
+
+# Models (large binary)
+models/
+*.pt
+*.bin
+*.onnx
+
+# Vendored sources fetched at install time, not committed
+vendored/whisperlivekit/.git/

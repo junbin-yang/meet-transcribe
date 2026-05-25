@@ -1,0 +1,89 @@
+[build-system]
+requires = ["hatchling>=1.21"]
+build-backend = "hatchling.build"
+
+[project]
+name = "meet-transcribe"
+version = "0.1.0"
+description = "Meeting real-time speech-to-text backend, private deployment, B2B"
+readme = "README.md"
+requires-python = ">=3.11,<3.13"
+license = { text = "Proprietary" }
+authors = [{ name = "meet-transcribe team" }]
+
+dependencies = [
+    "fastapi>=0.115,<0.117",
+    "uvicorn[standard]>=0.30,<0.33",
+    "websockets>=13,<14",
+    "pydantic>=2.7,<3",
+    "pydantic-settings>=2.4,<3",
+    "pyyaml>=6.0,<7",
+    "structlog>=24.4,<25",
+    "prometheus-client>=0.20,<0.22",
+    "sqlalchemy>=2.0,<3",
+    "alembic>=1.13,<2",
+    "psycopg[binary]>=3.2,<4",
+    "pgvector>=0.3,<0.4",
+    "passlib[argon2]>=1.7.4,<2",
+    "cryptography>=43,<46",
+    "numpy>=1.26,<3",
+    "torch>=2.4,<3",
+    "torchaudio>=2.4,<3",
+    "faster-whisper>=1.1,<2",
+    "speechbrain>=1.0,<2",
+    "librosa>=0.10,<0.11",
+    "soundfile>=0.12,<0.14",
+    "python-multipart>=0.0.9,<0.1",
+]
+
+[project.optional-dependencies]
+diarization-sortformer = [
+    "nemo-toolkit[asr]>=2.0",
+]
+diarization-diart = [
+    "diart>=0.9,<0.10",
+    "pyannote.audio>=3.3,<4",
+]
+dev = [
+    "pytest>=8,<9",
+    "pytest-asyncio>=0.23,<1",
+    "pytest-cov>=5,<7",
+    "httpx>=0.27,<0.29",
+    "ruff>=0.6,<0.13",
+    "mypy>=1.11,<2",
+    "types-pyyaml>=6.0,<7",
+]
+
+[project.scripts]
+meet-transcribe = "meet_transcribe.api.app:run_cli"
+meet-transcribe-doctor = "meet_transcribe.observability.doctor:main"
+
+[tool.hatch.build.targets.wheel]
+packages = ["src/meet_transcribe"]
+
+[tool.ruff]
+line-length = 100
+target-version = "py311"
+
+[tool.ruff.lint]
+select = ["E", "F", "W", "I", "B", "UP", "S", "RUF"]
+ignore = ["S101"]
+
+[tool.ruff.lint.per-file-ignores]
+"tests/**" = ["S", "B"]
+
+[tool.mypy]
+python_version = "3.11"
+strict = true
+warn_return_any = true
+warn_unused_configs = true
+
+[tool.pytest.ini_options]
+testpaths = ["tests"]
+asyncio_mode = "auto"
+addopts = "-ra -q --cov=meet_transcribe --cov-report=term-missing --cov-fail-under=80"
+
+[tool.coverage.run]
+branch = true
+source = ["src/meet_transcribe"]
+omit = ["src/meet_transcribe/__main__.py"]

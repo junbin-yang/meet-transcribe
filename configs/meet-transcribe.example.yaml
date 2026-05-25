@@ -1,0 +1,74 @@
+# meet-transcribe 配置示例
+#
+# 本文件 + 同名 .yaml（不入库）+ 环境变量覆盖（前缀 MT_）共同生效。
+# 优先级：env > .yaml > .example.yaml
+
+server:
+  host: "0.0.0.0"
+  port: 8080
+  workers: 1            # MUST be 1 for v0.x; GPU is single-instance
+  cors_origins: []
+  ticket_ttl_seconds: 30
+
+database:
+  # 本机开发 PostgreSQL；密码从环境变量 MT_DB_PASSWORD 读取，不入 yaml
+  url: "postgresql+psycopg://meet_transcribe:CHANGE_ME@localhost:5432/meet_transcribe"
+  pool_size: 5
+  echo: false
+
+asr:
+  # 模型选择：large-v3-turbo / medium / small
+  # M0 在 8GB GPU 上使用 medium
+  model: "medium"
+  device: "cuda"
+  compute_type: "float16"   # float16 / int8_float16 / int8
+  language: "zh"
+  beam_size: 5
+  itn_enabled: false        # MVP: 关闭 ITN（中文数字归一）
+
+streaming:
+  # WhisperStreaming (LocalAgreement) 的关键参数
+  min_chunk_size_seconds: 0.5
+  vad_enabled: true
+  vad_threshold: 0.5
+
+diarization:
+  # M0 暂关；M2 打开
+  enabled: false
+  backend: "sortformer"     # sortformer / diart
+  num_speakers_max: 6
+
+speakers:
+  # 声纹注册门槛
+  min_sample_seconds: 15
+  min_snr_db: 15
+  embedding_model: "speechbrain/spkrec-ecapa-voxceleb"
+  match_threshold: 0.65     # cosine similarity
+  cache_size: 1024
+
+hotwords:
+  enabled: true
+  max_words_per_session: 50
+  max_word_length: 20
+
+security:
+  # API key hash 用 HMAC-SHA256；server_secret 从环境变量 MT_SERVER_SECRET 读取
+  hash_algorithm: "hmac_sha256"
+  # 转写文本静态加密
+  transcript_encryption_enabled: true
+  # AES-GCM 主密钥从环境变量 MT_KMS_KEY 读取（base64）
+
+retention:
+  default_days: 90
+  audit_log_min_days: 180
+
+observability:
+  log_level: "INFO"
+  log_format: "json"
+  metrics_enabled: true
+  metrics_path: "/metrics"
+
+gpu:
+  cuda_alloc_conf: "expandable_segments:True"
+  oom_restart: true
+  high_watermark_mb: 6500   # 8GB GPU - 留 1.5GB 给系统

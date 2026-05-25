@@ -1,0 +1,159 @@
+<!DOCTYPE html>
+<html lang="zh-CN">
+<head>
+<meta charset="utf-8">
+<title>meet-transcribe demo</title>
+<style>
+  * { box-sizing: border-box; }
+  body {
+    margin: 0; padding: 32px;
+    font-family: -apple-system, "Segoe UI", "PingFang SC", "Microsoft YaHei", sans-serif;
+    background: #0e0f12; color: #e6e9ef;
+  }
+  h1 { font-weight: 500; letter-spacing: 0.5px; margin-top: 0; }
+  .card {
+    background: #16181d; border: 1px solid #23262d;
+    border-radius: 8px; padding: 20px; margin-bottom: 16px;
+  }
+  .row { display: flex; gap: 12px; align-items: center; flex-wrap: wrap; }
+  input, button {
+    background: #1c1f26; color: #e6e9ef; border: 1px solid #2a2e36;
+    padding: 8px 12px; border-radius: 6px; font-size: 14px;
+  }
+  button { cursor: pointer; transition: background 0.15s ease; }
+  button:hover:not(:disabled) { background: #262b34; }
+  button:disabled { opacity: 0.4; cursor: not-allowed; }
+  .pill {
+    display: inline-block; padding: 2px 8px; border-radius: 999px;
+    font-size: 12px; background: #2a2e36; color: #aab2c0;
+  }
+  .pill.live { background: #1d4730; color: #6fdc8c; }
+  .pill.dead { background: #4a1d1d; color: #ff8b8b; }
+  #log {
+    height: 360px; overflow-y: auto;
+    background: #0a0b0e; padding: 12px; border-radius: 6px;
+    font-family: "JetBrains Mono", Consolas, monospace; font-size: 13px;
+    line-height: 1.55;
+  }
+  .partial { color: #8a93a3; font-style: italic; }
+  .final { color: #e6e9ef; }
+  .speaker { color: #6fdc8c; font-weight: 600; margin-right: 6px; }
+</style>
+</head>
+<body>
+<h1>meet-transcribe demo</h1>
+
+<div class="card">
+  <div class="row">
+    <label>Server: <input id="server" value="ws://localhost:8080" size="28"></label>
+    <label>Ticket: <input id="ticket" placeholder="HTTP /v1/auth/ticket 换得" size="32"></label>
+    <span id="status" class="pill dead">disconnected</span>
+  </div>
+</div>
+
+<div class="card">
+  <div class="row">
+    <button id="start">Start recording</button>
+    <button id="stop" disabled>Stop</button>
+    <span id="meta" class="pill"></span>
+  </div>
+</div>
+
+<div class="card">
+  <div id="log"></div>
+</div>
+
+<script>
+const $ = (id) => document.getElementById(id);
+const log = $("log");
+const status = $("status");
+const meta = $("meta");
+
+let ws = null;
+let audioCtx = null;
+let stream = null;
+
+function setStatus(state) {
+  status.className = "pill " + (state === "connected" ? "live" : "dead");
+  status.textContent = state;
+}
+
+function appendLine(html) {
+  const div = document.createElement("div");
+  div.innerHTML = html;
+  log.appendChild(div);
+  log.scrollTop = log.scrollHeight;
+}
+
+let lastPartialEl = null;
+function renderEvent(evt) {
+  if (evt.type === "partial") {
+    if (!lastPartialEl) {
+      lastPartialEl = document.createElement("div");
+      lastPartialEl.className = "partial";
+      log.appendChild(lastPartialEl);
+    }
+    lastPartialEl.innerHTML = `<span class="speaker">${evt.speaker_label || evt.speaker || ""}</span>${evt.text}`;
+    log.scrollTop = log.scrollHeight;
+  } else if (evt.type === "final") {
+    if (lastPartialEl) { lastPartialEl.remove(); lastPartialEl = null; }
+    appendLine(`<span class="speaker">${evt.speaker_label || evt.speaker || ""}</span><span class="final">${evt.text}</span>`);
+  } else if (evt.type === "error") {
+    appendLine(`<span style="color:#ff8b8b">[error ${evt.code}] ${evt.message}</span>`);
+  }
+}
+
+$("start").onclick = async () => {
+  const url = $("server").value.replace(/\/$/, "")
+            + "/v1/ws/transcribe?ticket=" + encodeURIComponent($("ticket").value || "");
+  ws = new WebSocket(url);
+  ws.binaryType = "arraybuffer";
+
+  ws.onopen = async () => {
+    setStatus("connected");
+    ws.send(JSON.stringify({ type: "start", language: "zh", hotwords: [] }));
+
+    stream = await navigator.mediaDevices.getUserMedia({
+      audio: { sampleRate: 16000, channelCount: 1, echoCancellation: true, noiseSuppression: true }
+    });
+    audioCtx = new AudioContext({ sampleRate: 16000 });
+    const src = audioCtx.createMediaStreamSource(stream);
+    const proc = audioCtx.createScriptProcessor(4096, 1, 1);
+    src.connect(proc);
+    proc.connect(audioCtx.destination);
+    proc.onaudioprocess = (e) => {
+      if (ws.readyState !== WebSocket.OPEN) return;
+      const f32 = e.inputBuffer.getChannelData(0);
+      const i16 = new Int16Array(f32.length);
+      for (let i = 0; i < f32.length; i++) {
+        const s = Math.max(-1, Math.min(1, f32[i]));
+        i16[i] = s < 0 ? s * 0x8000 : s * 0x7fff;
+      }
+      ws.send(i16.buffer);
+    };
+
+    $("start").disabled = true;
+    $("stop").disabled = false;
+    meta.textContent = "16kHz / mono / PCM16";
+  };
+
+  ws.onmessage = (ev) => {
+    try { renderEvent(JSON.parse(ev.data)); } catch (e) {}
+  };
+  ws.onclose = () => setStatus("disconnected");
+  ws.onerror = () => setStatus("disconnected");
+};
+
+$("stop").onclick = () => {
+  if (ws && ws.readyState === WebSocket.OPEN) {
+    ws.send(JSON.stringify({ type: "end" }));
+    ws.close();
+  }
+  if (audioCtx) { audioCtx.close(); audioCtx = null; }
+  if (stream) { stream.getTracks().forEach(t => t.stop()); stream = null; }
+  $("start").disabled = false;
+  $("stop").disabled = true;
+};
+</script>
+</body>
+</html>
