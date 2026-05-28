@@ -29,12 +29,39 @@ MT_ADMIN_TOKEN=<32+ chars>
 
 ## 4. 启动
 
+电脑重启后：
+
 ```bash
+# 1. 确保 PostgreSQL 运行中（通常开机自启）
+pg_isready -U postgres
+
+# 2. 激活虚拟环境
+source .venv/Scripts/activate
+
+# 3. 启动服务
 python scripts/run_dev.py
-# http://127.0.0.1:18080/ready → {"status":"ok"}
 ```
 
-首次启动自动下载 FunASR 模型到 `~/.cache/modelscope/`（约 15-30 分钟）。
+验证：`curl http://127.0.0.1:18080/ready` → `{"status":"ok"}`
+
+首次启动下载模型约 15-30 分钟，后续启动约 30 秒。
+
+### 4.1 日志
+
+日志默认输出到终端（JSON 格式）。建议重定向到文件：
+
+```bash
+python scripts/run_dev.py > logs/server.log 2>&1 &
+tail -f logs/server.log
+```
+
+关键日志事件：
+
+| 事件 | 含义 |
+|------|------|
+| `funasr.spk_engine.init` | 模型加载完成 |
+| `Application startup complete` | 服务就绪 |
+| `model.run.done` | SPK 模型运行完成 |
 
 ## 5. Web Demo
 
