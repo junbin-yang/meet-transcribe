@@ -59,8 +59,7 @@ security:
   # AES-GCM 主密钥从环境变量 MT_KMS_KEY 读取（base64）
 
 retention:
-  default_days: 90
-  audit_log_min_days: 180
+  # 占位 — 留存策略未实现
 
 observability:
   log_level: "INFO"

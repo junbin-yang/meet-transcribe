@@ -110,7 +110,7 @@ bash scripts/bootstrap-tenant.sh
 curl -X POST http://localhost:8080/v1/admin/tenants \
   -H "Content-Type: application/json" \
   -H "X-Admin-Token: $MT_ADMIN_TOKEN" \
-  -d '{"name":"client-a","quota_concurrent":5,"quota_minutes_per_day":600,"data_retention_days":90}'
+  -d '{"name":"client-a","quota_concurrent":5,"quota_minutes_per_day":600}'
 
 # 签发 API Key
 curl -X POST http://localhost:8080/v1/admin/tenants/{tenant_id}/api-keys?label=prod \

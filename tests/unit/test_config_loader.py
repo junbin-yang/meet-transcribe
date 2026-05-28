@@ -44,15 +44,6 @@ def test_workers_must_be_one(tmp_yaml: Path) -> None:
         AppConfig(database={"url": "x"}, server={"workers": 4})
 
 
-def test_audit_retention_minimum(tmp_yaml: Path) -> None:
-    from pydantic import ValidationError
-
-    from meet_transcribe.config.loader import RetentionConfig
-
-    with pytest.raises(ValidationError):
-        RetentionConfig(audit_log_min_days=30)
-
-
 def test_missing_config_raises(tmp_path: Path) -> None:
     from meet_transcribe.config.loader import load_config
 

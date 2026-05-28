@@ -31,7 +31,6 @@ class Tenant(Base):
     name: Mapped[str] = mapped_column(String, unique=True, nullable=False)
     quota_concurrent: Mapped[int] = mapped_column(Integer, nullable=False, default=1)
     quota_minutes_per_day: Mapped[int] = mapped_column(Integer, nullable=False, default=60)
-    data_retention_days: Mapped[int] = mapped_column(Integer, nullable=False, default=90)
     created_at: Mapped[datetime] = mapped_column(
         TIMESTAMP(timezone=True), nullable=False, server_default=text("NOW()")
     )

@@ -24,19 +24,18 @@ Content-Type: application/json
 {
   "name":                  "client-a",
   "quota_concurrent":      5,
-  "quota_minutes_per_day": 600,
-  "data_retention_days":   90
+  "quota_minutes_per_day": 600
 }
+// quota 字段当前为占位，执行逻辑未实现
 ```
 
 | 字段 | 说明 | 范围 |
 |------|------|------|
 | `name` | 租户名（唯一） | 1-128 chars |
-| `quota_concurrent` | 最大并发会话数 | 1-64 |
-| `quota_minutes_per_day` | 日转写分钟配额 | 1-10080 |
-| `data_retention_days` | 数据保留天数 | 1-3650 |
+| `quota_concurrent` | 最大并发会话数（占位，未强制执行） | 1-64 |
+| `quota_minutes_per_day` | 日转写分钟配额（占位，未强制执行） | 1-10080 |
 
-返回 `{ id, name, quota_concurrent, quota_minutes_per_day, data_retention_days, created_at }`。
+返回 `{ id, name, quota_concurrent, quota_minutes_per_day, created_at }`。
 
 ### 签发 API Key
 

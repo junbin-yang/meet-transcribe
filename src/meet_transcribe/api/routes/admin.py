@@ -38,15 +38,11 @@ class TenantCreate(BaseModel):
     name: str = Field(min_length=1, max_length=128)
     quota_concurrent: int = Field(default=1, ge=1, le=64)
     quota_minutes_per_day: int = Field(default=60, ge=1, le=24 * 60 * 7)
-    data_retention_days: int = Field(default=90, ge=1, le=3650)
-
-
 class TenantOut(BaseModel):
     id: uuid.UUID
     name: str
     quota_concurrent: int
     quota_minutes_per_day: int
-    data_retention_days: int
     created_at: datetime
 
 
@@ -64,7 +60,6 @@ async def create_tenant(body: TenantCreate, db: AsyncSession = Depends(get_db)) 
         name=body.name,
         quota_concurrent=body.quota_concurrent,
         quota_minutes_per_day=body.quota_minutes_per_day,
-        data_retention_days=body.data_retention_days,
     )
     db.add(t)
     try:
@@ -78,7 +73,6 @@ async def create_tenant(body: TenantCreate, db: AsyncSession = Depends(get_db)) 
         name=t.name,
         quota_concurrent=t.quota_concurrent,
         quota_minutes_per_day=t.quota_minutes_per_day,
-        data_retention_days=t.data_retention_days,
         created_at=t.created_at,
     )
 

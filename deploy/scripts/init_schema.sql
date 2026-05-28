@@ -1,5 +1,4 @@
 -- meet-transcribe initial schema
--- 与 docs/design-v2.md 第 4.4 节一致
 -- 在 PostgreSQL 16+ 上运行；需要 pgvector 扩展
 
 \set ON_ERROR_STOP on
@@ -12,7 +11,6 @@ CREATE TABLE IF NOT EXISTS tenants (
     name                    TEXT NOT NULL UNIQUE,
     quota_concurrent        INTEGER NOT NULL DEFAULT 1,
     quota_minutes_per_day   INTEGER NOT NULL DEFAULT 60,
-    data_retention_days     INTEGER NOT NULL DEFAULT 90,
     created_at              TIMESTAMPTZ NOT NULL DEFAULT NOW(),
     deleted_at              TIMESTAMPTZ
 );

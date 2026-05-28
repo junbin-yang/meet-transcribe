@@ -37,7 +37,7 @@ echo ">> 创建 tenant: $TENANT_NAME"
 curl -fsS -X POST "$BASE/v1/admin/tenants" \
   -H "Content-Type: application/json" \
   -H "X-Admin-Token: $ADMIN" \
-  -d "{\"name\":\"$TENANT_NAME\",\"quota_concurrent\":1,\"quota_minutes_per_day\":60,\"data_retention_days\":30}" \
+  -d "{\"name\":\"$TENANT_NAME\",\"quota_concurrent\":1,\"quota_minutes_per_day\":60}" \
   > .scratch/tenant.json
 
 TID=$("$PYTHON" -c "import json; print(json.load(open('.scratch/tenant.json'))['id'])")

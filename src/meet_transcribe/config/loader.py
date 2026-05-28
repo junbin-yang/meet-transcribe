@@ -71,8 +71,7 @@ class SecurityConfig(BaseModel):
 
 
 class RetentionConfig(BaseModel):
-    default_days: int = Field(default=90, ge=1, le=3650)
-    audit_log_min_days: int = Field(default=180, ge=180, le=3650)
+    """占位 — 留存策略未实现。"""
 
 
 class ObservabilityConfig(BaseModel):
