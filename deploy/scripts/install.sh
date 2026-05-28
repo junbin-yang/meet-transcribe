@@ -61,16 +61,24 @@ install_systemd_unit() {
     systemctl daemon-reload
 }
 
+pre_download_models() {
+    echo "[5/5] pre-downloading FunASR models (~1.5 GB) ..."
+    sudo -u "$SERVICE_USER" "$INSTALL_PREFIX/.venv/bin/python" \
+        "$INSTALL_PREFIX/scripts/pre_download_models.py"
+}
+
 main() {
     require_root
-    echo "[1/4] creating service user $SERVICE_USER"
+    echo "[1/5] creating service user $SERVICE_USER"
     create_user
-    echo "[2/4] creating directories"
+    echo "[2/5] creating directories"
     create_dirs
-    echo "[3/4] setting up venv"
+    echo "[3/5] setting up venv"
     setup_venv
-    echo "[4/4] installing systemd unit"
+    echo "[4/5] installing systemd unit"
     install_systemd_unit
+    echo "[5/5] pre-downloading models"
+    pre_download_models
 
     echo
     echo "Next steps:"
@@ -78,8 +86,7 @@ main() {
     echo "  2. Create $ETC_DIR/env with MT_DB_PASSWORD / MT_SERVER_SECRET / MT_KMS_KEY"
     echo "  3. Initialize PostgreSQL schema:"
     echo "       psql -U postgres -f $INSTALL_PREFIX/deploy/scripts/init_schema.sql"
-    echo "  4. Run:  $INSTALL_PREFIX/.venv/bin/meet-transcribe-doctor"
-    echo "  5. systemctl enable --now meet-transcribe"
+    echo "  4. systemctl enable --now meet-transcribe"
 }
 
 main "$@"

@@ -49,11 +49,18 @@ chmod 600 /etc/meet-transcribe/env
 - `asr.model`: `large`（默认）
 - `asr.device`: `cuda`
 
-## 4. 模型预热（首次启动）
+## 4. 模型预热
 
-首次启动自动从 ModelScope 下载模型到 `~/.cache/modelscope/hub/models/`，约 5-10 分钟。
+`install.sh` 最后一步自动运行 `scripts/pre_download_models.py` 预下载 4 个模型到
+`~/.cache/modelscope/hub/models/`（约 1.5 GB，5-15 分钟）。
 
-离线部署：在有网络的机器上运行一次 `python scripts/run_dev.py`，然后将 `~/.cache/modelscope/` 打包传输到目标机器。
+也可手动运行：
+
+```bash
+python scripts/pre_download_models.py
+```
+
+离线部署：在有网络的机器上运行一次，将 `~/.cache/modelscope/` 打包传输到目标机器。
 
 ## 5. 启动
 
