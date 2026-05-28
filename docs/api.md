@@ -10,7 +10,10 @@
 Authorization: Bearer <api_key>
 ```
 
-API Key 由部署方通过管理接口签发，每个 tenant 可有多个 Key。
+**API Key 是第三方客户接入所需的唯一凭证。** 无需 tenant ID、无需了解多租户结构。
+客户从部署方获取一个 `mt_` 开头的 API Key 字符串即可开始对接。
+
+API Key 由部署方通过管理接口签发，每个 tenant 可有多个 Key（不同客户端、不同环境）。
 
 ## 2. HTTP API
 
