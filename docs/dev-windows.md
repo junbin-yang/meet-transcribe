@@ -30,17 +30,16 @@ MT_ADMIN_TOKEN=<32+ chars>
 ## 4. 启动
 
 ```bash
-# 1. 确保 PostgreSQL 运行中（通常开机自启）
-pg_isready -U postgres
-
-# 2. 激活虚拟环境
-source .venv/Scripts/activate
-
-# 3. 启动服务
+# HTTP（本机调试）
 python scripts/run_dev.py
+
+# HTTPS（局域网测试，首次自动生成自签名证书）
+python scripts/run_dev.py --https
 ```
 
 验证：`curl http://127.0.0.1:18080/ready` → `{"status":"ok"}`
+
+HTTPS 模式监听 `0.0.0.0`，证书 `.scratch/dev-cert.pem`。浏览器忽略证书警告即可使用麦克风。
 
 首次启动下载模型约 15-30 分钟，后续启动约 30 秒。
 
