@@ -126,17 +126,73 @@ curl -X POST http://localhost:8080/v1/admin/tenants/{tenant_id}/api-keys?label=p
 - 客户遗失 API Key → 重新签发新的，吊销旧的
 - API Key 通过 HTTP `Authorization` 头传输，必须使用 HTTPS
 
-## 7. 运维
+## 7. HTTPS 部署
+
+服务监听 `0.0.0.0:8080`（HTTP），生产环境通过 **Nginx 反向代理** 终止 TLS。
+
+### 7.1 公网域名 + Let's Encrypt
+
+```bash
+apt install -y nginx certbot python3-certbot-nginx
+certbot --nginx -d transcribe.example.com
+```
+
+### 7.2 Nginx 配置
+
+```nginx
+# /etc/nginx/sites-available/meet-transcribe
+server {
+    listen 443 ssl;
+    server_name transcribe.example.com;
+
+    ssl_certificate     /etc/letsencrypt/live/transcribe.example.com/fullchain.pem;
+    ssl_certificate_key /etc/letsencrypt/live/transcribe.example.com/privkey.pem;
+
+    location / {
+        proxy_pass http://127.0.0.1:8080;
+        proxy_http_version 1.1;
+        proxy_set_header Upgrade $http_upgrade;
+        proxy_set_header Connection "upgrade";
+        proxy_set_header Host $host;
+        proxy_set_header X-Real-IP $remote_addr;
+        proxy_read_timeout 3600s;
+    }
+}
+
+server {
+    listen 80;
+    server_name transcribe.example.com;
+    return 301 https://$server_name$request_uri;
+}
+```
+
+```bash
+ln -s /etc/nginx/sites-available/meet-transcribe /etc/nginx/sites-enabled/
+nginx -t && systemctl reload nginx
+```
+
+### 7.3 内网自签名（无域名）
+
+```bash
+openssl req -x509 -newkey rsa:2048 -keyout /etc/nginx/dev-key.pem \
+  -out /etc/nginx/dev-cert.pem -days 365 -nodes -subj "/CN=meet-transcribe"
+```
+
+Nginx 中替换证书路径即可，客户端忽略浏览器警告。
+
+## 8. 运维
 
 ```bash
 journalctl -u meet-transcribe -f   # 日志
 systemctl restart meet-transcribe  # 重启
+systemctl reload nginx             # 重载 Nginx
 nvidia-smi                         # GPU 显存
 curl http://localhost:8080/metrics # 指标
-ufw allow 8080/tcp                 # 防火墙
+ufw allow 443/tcp                  # HTTPS
+ufw allow 80/tcp                   # HTTP 重定向
 ```
 
-## 8. 资源要求
+## 9. 资源要求
 
 | 资源 | 最低 | 推荐 |
 |------|------|------|
