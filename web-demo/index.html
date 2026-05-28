@@ -37,7 +37,62 @@
   }
   .partial { color: #8a93a3; font-style: italic; }
   .final { color: #e6e9ef; }
-  .speaker { color: #6fdc8c; font-weight: 600; margin-right: 6px; }
+  .speaker { font-weight: 600; margin-right: 6px; }
+  .speaker.resolved {
+    color: #0a0b0e; background: #6fdc8c; padding: 1px 8px;
+    border-radius: 999px; font-size: 12px;
+  }
+  .speaker.unresolved {
+    color: #aab2c0; background: #2a2e36; padding: 1px 8px;
+    border-radius: 999px; font-size: 12px;
+  }
+  .speaker.s-1 { background: #2d4a7a; color: #8db8f2; }
+  .speaker.s-2 { background: #4a3a1d; color: #f0c06d; }
+  .speaker.s-3 { background: #2d4a3d; color: #7dd8a4; }
+  .speaker.s-4 { background: #4a2d3d; color: #e89db8; }
+  .speaker.s-5 { background: #3d2d4a; color: #c09de8; }
+  .speaker.s-6 { background: #4a3d2d; color: #d8b87d; }
+  .speaker.silence { color: #4a4f59; font-style: italic; font-weight: 400; }
+  .line { margin: 2px 0; }
+  .resolved-score { color: #6b7180; font-size: 11px; margin-left: 4px; }
+
+  /* tabs */
+  .tabs { display: flex; gap: 4px; margin-bottom: 16px; border-bottom: 1px solid #23262d; }
+  .tab {
+    background: transparent; border: none; padding: 10px 18px;
+    color: #8a93a3; font-size: 14px; cursor: pointer;
+    border-bottom: 2px solid transparent; border-radius: 0;
+  }
+  .tab:hover:not(.active) { color: #c5cbd6; }
+  .tab.active { color: #e6e9ef; border-bottom-color: #6fdc8c; }
+  .pane.hidden { display: none; }
+
+  /* speakers */
+  table { width: 100%; border-collapse: collapse; font-size: 13px; }
+  th, td { padding: 8px 10px; text-align: left; border-bottom: 1px solid #23262d; }
+  th { color: #8a93a3; font-weight: 500; }
+  td.actions { white-space: nowrap; }
+  .btn-danger { background: #3a1d1d; border-color: #4a2424; color: #ffb3b3; }
+  .btn-danger:hover:not(:disabled) { background: #4a2424; }
+  .btn-primary { background: #1d3a2a; border-color: #234a35; color: #6fdc8c; }
+  .btn-primary:hover:not(:disabled) { background: #234a35; }
+  .field { display: flex; flex-direction: column; gap: 4px; }
+  .field label { font-size: 12px; color: #8a93a3; }
+  .field input, .field select { width: 240px; }
+  .toast {
+    margin-top: 12px; padding: 10px 12px; border-radius: 6px;
+    font-family: "JetBrains Mono", Consolas, monospace; font-size: 12px;
+    white-space: pre-wrap;
+  }
+  .toast.ok   { background: #1d3a2a; color: #6fdc8c; }
+  .toast.err  { background: #3a1d1d; color: #ff8b8b; }
+  .toast.info { background: #1d2a3a; color: #6fa8dc; }
+  .rec-dot {
+    display: inline-block; width: 8px; height: 8px; border-radius: 50%;
+    background: #ff5050; margin-right: 6px; animation: pulse 1s infinite;
+  }
+  @keyframes pulse { 0%,100%{opacity:1} 50%{opacity:.3} }
+  .hint { color: #6b7180; font-size: 12px; margin-top: 4px; }
 </style>
 </head>
 <body>
@@ -45,33 +100,160 @@
 
 <div class="card">
   <div class="row">
-    <label>Server: <input id="server" value="ws://localhost:8080" size="28"></label>
-    <label>Ticket: <input id="ticket" placeholder="HTTP /v1/auth/ticket 换得" size="32"></label>
+    <label>Server: <input id="server" value="ws://localhost:18080" size="28"></label>
+    <label>API Key: <input id="apikey" placeholder="mt_..." size="40" type="password"></label>
     <span id="status" class="pill dead">disconnected</span>
   </div>
 </div>
 
+<div class="tabs">
+  <button class="tab active" data-pane="pane-transcribe">实时转写</button>
+  <button class="tab" data-pane="pane-offline">离线转写</button>
+  <button class="tab" data-pane="pane-speakers">声纹管理</button>
+</div>
+
+<div id="pane-transcribe" class="pane">
 <div class="card">
   <div class="row">
-    <button id="start">Start recording</button>
-    <button id="stop" disabled>Stop</button>
+    <button id="start">开始录音</button>
+    <button id="stop" disabled>停止</button>
+    <input type="file" id="file" accept=".wav,audio/wav" style="display:none">
+    <button id="upload">播放 WAV 文件</button>
+    <select id="lang"><option value="auto">语言：自动</option><option value="zh">中文</option><option value="en">English</option></select>
     <span id="meta" class="pill"></span>
   </div>
+  <div id="transcribe-toast" class="toast" style="display:none;"></div>
 </div>
 
 <div class="card">
   <div id="log"></div>
 </div>
+</div><!-- /pane-transcribe -->
 
+<div id="pane-speakers" class="pane hidden">
+<div class="card">
+  <h3 style="margin:0 0 12px 0; font-weight:500;">注册新声纹</h3>
+  <div class="row" style="align-items:flex-end; gap:16px;">
+    <div class="field">
+      <label>显示名</label>
+      <input id="sp-name" placeholder="alice" maxlength="128">
+    </div>
+    <div class="field">
+      <label>同意来源 (可选)</label>
+      <input id="sp-consent" placeholder="in_app_consent" maxlength="64">
+    </div>
+    <div class="field">
+      <label>样本来源</label>
+      <select id="sp-source">
+        <option value="record">现场录音 (≥15s)</option>
+        <option value="file">上传 WAV / FLAC</option>
+      </select>
+    </div>
+  </div>
+
+  <div class="row" style="margin-top:12px;">
+    <button id="sp-rec-start" class="btn-primary">开始录音</button>
+    <button id="sp-rec-stop" disabled>停止并上传</button>
+    <input type="file" id="sp-file" accept=".wav,.flac,.ogg,.mp3,.m4a,audio/*" style="display:none">
+    <button id="sp-upload-btn" style="display:none">选择文件并上传</button>
+    <span id="sp-rec-meta" class="pill"></span>
+  </div>
+  <div class="hint">录制时长 &lt; 15s 或 SNR &lt; 15dB 会被服务端 422 拒绝。</div>
+  <div id="sp-toast" class="toast" style="display:none;"></div>
+</div>
+
+<div class="card">
+  <div class="row" style="justify-content:space-between;">
+    <h3 style="margin:0; font-weight:500;">已注册声纹</h3>
+    <button id="sp-refresh">刷新列表</button>
+  </div>
+  <table style="margin-top:12px;">
+    <thead>
+      <tr>
+        <th>名称</th><th>样本数</th><th>SNR均值</th><th>同意</th><th>创建时间</th><th class="actions">操作</th>
+      </tr>
+    </thead>
+    <tbody id="sp-tbody">
+      <tr><td colspan="6" style="color:#6b7180; text-align:center;">点击"刷新列表"加载</td></tr>
+    </tbody>
+  </table>
+</div>
+</div><!-- /pane-speakers -->
+
+<div id="pane-offline" class="pane hidden">
+<div class="card">
+  <div class="row">
+    <input type="file" id="offline-file" accept=".wav,.flac,.ogg,.mp3,.m4a,audio/*">
+    <select id="offline-lang"><option value="auto">语言：自动</option><option value="zh">中文</option><option value="en">English</option></select>
+    <button id="offline-start">开始转写</button>
+    <span id="offline-meta" class="pill"></span>
+  </div>
+  <div id="offline-toast" class="toast" style="display:none;"></div>
+</div>
+<div class="card">
+  <div id="offline-log"></div>
+</div>
+</div><!-- /pane-offline -->
+
+<script src="render.js"></script>
 <script>
 const $ = (id) => document.getElementById(id);
+
+// Auto-detect server URL from page URL
+(function() {
+  const loc = window.location;
+  const srv = $("server");
+  srv.value = loc.protocol.replace("http", "ws") + "//" + loc.host;
+})();
+
 const log = $("log");
 const status = $("status");
 const meta = $("meta");
 
+// 记住 API Key，下次打开页面自动填回。
+const SAVED_KEY = "mt_api_key";
+const savedKey = localStorage.getItem(SAVED_KEY);
+if (savedKey) $("apikey").value = savedKey;
+$("apikey").addEventListener("change", () => {
+  localStorage.setItem(SAVED_KEY, $("apikey").value.trim());
+});
+
 let ws = null;
 let audioCtx = null;
 let stream = null;
+const transcribeToast = $("transcribe-toast");
+function showTranscribeToast(msg, kind) {
+  transcribeToast.style.display = "block";
+  transcribeToast.className = "toast " + (kind || "err");
+  transcribeToast.textContent = msg;
+}
+
+function httpBase() {
+  return $("server").value.replace(/\/$/, "").replace(/^ws/, "http");
+}
+
+function wsBase() {
+  return $("server").value.replace(/\/$/, "").replace(/^http/, "ws");
+}
+
+async function fetchTicket() {
+  const apiKey = $("apikey").value.trim();
+  if (!apiKey) throw new Error("请填 API Key");
+  const resp = await fetch(httpBase() + "/v1/auth/ticket", {
+    method: "POST",
+    headers: {
+      "Authorization": "Bearer " + apiKey,
+      "Content-Type": "application/json",
+    },
+    body: JSON.stringify({ session_hint: "web-demo" }),
+  });
+  if (!resp.ok) {
+    const text = await resp.text().catch(() => "");
+    throw new Error(`ticket 申请失败 ${resp.status}: ${text}`);
+  }
+  const body = await resp.json();
+  return body.ticket;
+}
 
 function setStatus(state) {
   status.className = "pill " + (state === "connected" ? "live" : "dead");
@@ -86,36 +268,51 @@ function appendLine(html) {
 }
 
 let lastPartialEl = null;
+
 function renderEvent(evt) {
+  var p = evt.payload || evt;
   if (evt.type === "partial") {
     if (!lastPartialEl) {
       lastPartialEl = document.createElement("div");
-      lastPartialEl.className = "partial";
       log.appendChild(lastPartialEl);
     }
-    lastPartialEl.innerHTML = `<span class="speaker">${evt.speaker_label || evt.speaker || ""}</span>${evt.text}`;
+    lastPartialEl.innerHTML = MTRender.renderLines(p.lines, "partial");
     log.scrollTop = log.scrollHeight;
   } else if (evt.type === "final") {
     if (lastPartialEl) { lastPartialEl.remove(); lastPartialEl = null; }
-    appendLine(`<span class="speaker">${evt.speaker_label || evt.speaker || ""}</span><span class="final">${evt.text}</span>`);
+    appendLine(MTRender.renderLines(p.lines, "final"));
   } else if (evt.type === "error") {
-    appendLine(`<span style="color:#ff8b8b">[error ${evt.code}] ${evt.message}</span>`);
+    appendLine(`<span style="color:#ff8b8b">[error ${p.code}] ${p.message}</span>`);
   }
 }
 
 $("start").onclick = async () => {
-  const url = $("server").value.replace(/\/$/, "")
-            + "/v1/ws/transcribe?ticket=" + encodeURIComponent($("ticket").value || "");
+  log.innerHTML = ""; lastPartialEl = null;
+  let ticket;
+  try {
+    ticket = await fetchTicket();
+  } catch (e) {
+    appendLine(`<span style="color:#ff8b8b">${e.message}</span>`);
+    return;
+  }
+
+  try {
+    stream = await navigator.mediaDevices.getUserMedia({
+      audio: { sampleRate: 16000, channelCount: 1, echoCancellation: true, noiseSuppression: true }
+    });
+  } catch (e) {
+    showTranscribeToast('麦克风不可用：' + e.message, 'err');
+    return;
+  }
+
+  const url = wsBase() + "/v1/ws/transcribe?ticket=" + encodeURIComponent(ticket);
   ws = new WebSocket(url);
   ws.binaryType = "arraybuffer";
 
   ws.onopen = async () => {
     setStatus("connected");
-    ws.send(JSON.stringify({ type: "start", language: "zh", hotwords: [] }));
+    ws.send(JSON.stringify({ type: "start", language: $("lang").value, hotwords: [] }));
 
-    stream = await navigator.mediaDevices.getUserMedia({
-      audio: { sampleRate: 16000, channelCount: 1, echoCancellation: true, noiseSuppression: true }
-    });
     audioCtx = new AudioContext({ sampleRate: 16000 });
     const src = audioCtx.createMediaStreamSource(stream);
     const proc = audioCtx.createScriptProcessor(4096, 1, 1);
@@ -153,6 +350,425 @@ $("stop").onclick = () => {
   if (stream) { stream.getTracks().forEach(t => t.stop()); stream = null; }
   $("start").disabled = false;
   $("stop").disabled = true;
+};
+
+// ---- Play a local WAV file (mono 16k PCM, paced to wall-clock) -----------
+$("upload").onclick = () => $("file").click();
+$("file").onchange = async (ev) => {
+  const file = ev.target.files && ev.target.files[0];
+  if (!file) return;
+  await playFile(file);
+};
+
+async function playFile(file) {
+  log.innerHTML = ""; lastPartialEl = null;
+  let ticket;
+  try {
+    ticket = await fetchTicket();
+  } catch (e) {
+    appendLine(`<span style="color:#ff8b8b">${e.message}</span>`);
+    return;
+  }
+  const url = wsBase() + "/v1/ws/transcribe?ticket=" + encodeURIComponent(ticket);
+  ws = new WebSocket(url);
+  ws.binaryType = "arraybuffer";
+
+  await new Promise((resolve, reject) => {
+    ws.onopen = resolve;
+    ws.onerror = reject;
+  });
+  setStatus("connected");
+  ws.onmessage = (ev) => { try { renderEvent(JSON.parse(ev.data)); } catch (e) {} };
+  ws.onclose = () => setStatus("disconnected");
+
+  ws.send(JSON.stringify({ type: "start", language: $("lang").value, hotwords: [] }));
+
+  const arr = await file.arrayBuffer();
+  const offlineCtx = new (window.OfflineAudioContext || window.webkitOfflineAudioContext)(1, 1, 16000);
+  const decoded = await offlineCtx.decodeAudioData(arr.slice(0));
+
+  const targetSr = 16000;
+  const off = new (window.OfflineAudioContext || window.webkitOfflineAudioContext)(
+    1, Math.ceil(decoded.duration * targetSr), targetSr,
+  );
+  const src = off.createBufferSource();
+  src.buffer = decoded;
+  src.connect(off.destination);
+  src.start();
+  const rendered = await off.startRendering();
+  const mono = rendered.getChannelData(0);
+
+  meta.textContent = `WAV ${file.name} ${decoded.duration.toFixed(1)}s @16k mono`;
+  $("start").disabled = true;
+  $("stop").disabled = false;
+
+  const FRAME_MS = 200;
+  const FRAME_SAMPLES = (targetSr * FRAME_MS) / 1000;
+  const totalFrames = Math.ceil(mono.length / FRAME_SAMPLES);
+  const t0 = performance.now();
+
+  for (let i = 0; i < totalFrames; i++) {
+    if (ws.readyState !== WebSocket.OPEN) break;
+    const start = i * FRAME_SAMPLES;
+    const end = Math.min(start + FRAME_SAMPLES, mono.length);
+    const f32 = mono.subarray(start, end);
+    const i16 = new Int16Array(f32.length);
+    for (let j = 0; j < f32.length; j++) {
+      const s = Math.max(-1, Math.min(1, f32[j]));
+      i16[j] = s < 0 ? s * 0x8000 : s * 0x7fff;
+    }
+    ws.send(i16.buffer);
+
+    const due = t0 + (i + 1) * FRAME_MS;
+    const wait = due - performance.now();
+    if (wait > 0) await new Promise((r) => setTimeout(r, wait));
+  }
+
+  ws.send(JSON.stringify({ type: "end" }));
+  appendLine(`<span class="partial">[played ${file.name} in ${((performance.now()-t0)/1000).toFixed(1)}s]</span>`);
+  $('start').disabled = false;
+  $('stop').disabled = true;
+  meta.textContent = '';
+}
+
+// =========================================================================
+// Tabs + 声纹管理 (M2a)
+// =========================================================================
+document.querySelectorAll(".tab").forEach((btn) => {
+  btn.onclick = () => {
+    document.querySelectorAll(".tab").forEach((b) => b.classList.remove("active"));
+    document.querySelectorAll(".pane").forEach((p) => p.classList.add("hidden"));
+    btn.classList.add("active");
+    document.getElementById(btn.dataset.pane).classList.remove("hidden");
+    if (btn.dataset.pane === "pane-speakers") loadSpeakers();
+  };
+});
+
+const spToast = $("sp-toast");
+const spTbody = $("sp-tbody");
+const spRecMeta = $("sp-rec-meta");
+
+function showToast(msg, kind = "info") {
+  spToast.style.display = "block";
+  spToast.className = "toast " + kind;
+  spToast.textContent = msg;
+}
+function hideToast() { spToast.style.display = "none"; }
+
+function reasonZh(reason) {
+  return ({
+    sample_too_short: "样本太短（&lt;15s）",
+    snr_too_low: "信噪比过低（&lt;15dB），录音环境太吵或几乎纯静音",
+    embedding_degenerate: "向量退化（样本质量过差）",
+  })[reason] || reason;
+}
+
+async function apiFetch(path, init = {}) {
+  const apiKey = $("apikey").value.trim();
+  if (!apiKey) throw new Error("请先填 API Key");
+  const headers = init.headers || {};
+  headers["Authorization"] = "Bearer " + apiKey;
+  const resp = await fetch(httpBase() + path, { ...init, headers });
+  if (!resp.ok) {
+    let payload;
+    try { payload = await resp.json(); } catch (e) { payload = { detail: { code: "HTTP_" + resp.status, message: resp.statusText } }; }
+    const err = new Error(payload.detail?.message || resp.statusText);
+    err.code = payload.detail?.code || "HTTP_" + resp.status;
+    err.status = resp.status;
+    throw err;
+  }
+  if (resp.status === 204) return null;
+  return resp.json();
+}
+
+async function loadSpeakers() {
+  hideToast();
+  spTbody.innerHTML = `<tr><td colspan="6" style="color:#6b7180; text-align:center;">加载中…</td></tr>`;
+  try {
+    const list = await apiFetch("/v1/speakers");
+    if (!list.length) {
+      spTbody.innerHTML = `<tr><td colspan="6" style="color:#6b7180; text-align:center;">还没有注册声纹</td></tr>`;
+      return;
+    }
+    spTbody.innerHTML = "";
+    for (const sp of list) {
+      const tr = document.createElement("tr");
+      const consentTxt = sp.consent_at
+        ? `${new Date(sp.consent_at).toLocaleDateString()} (${escHtml(sp.consent_source || "")})`
+        : "—";
+      tr.innerHTML = `
+        <td>${escHtml(sp.name)}</td>
+        <td>${sp.sample_count}</td>
+        <td>${sp.snr_db_avg == null ? "—" : sp.snr_db_avg.toFixed(1) + " dB"}</td>
+        <td>${consentTxt}</td>
+        <td>${new Date(sp.created_at).toLocaleString()}</td>
+        <td class="actions">
+          <button data-act="add" data-id="${sp.id}" data-name="${escHtml(sp.name)}">追加样本</button>
+          <button data-act="del" data-id="${sp.id}" data-name="${escHtml(sp.name)}" class="btn-danger">删除</button>
+        </td>
+      `;
+      spTbody.appendChild(tr);
+    }
+    spTbody.querySelectorAll("button[data-act='del']").forEach((b) => {
+      b.onclick = () => deleteSpeaker(b.dataset.id, b.dataset.name);
+    });
+    spTbody.querySelectorAll("button[data-act='add']").forEach((b) => {
+      b.onclick = () => addSampleFlow(b.dataset.id, b.dataset.name);
+    });
+  } catch (e) {
+    spTbody.innerHTML = `<tr><td colspan="6" style="color:#ff8b8b; text-align:center;">[${e.code}] ${escHtml(e.message)}</td></tr>`;
+  }
+}
+
+function escHtml(s) {
+  return MTRender.escHtml(s);
+}
+
+async function deleteSpeaker(id, name) {
+  if (!confirm(`确认删除声纹 "${name}"？（软删除，PG 中保留 deleted_at 时间戳）`)) return;
+  try {
+    await apiFetch("/v1/speakers/" + id, { method: "DELETE" });
+    showToast(`已删除 "${name}"`, "ok");
+    loadSpeakers();
+  } catch (e) {
+    showToast(`删除失败 [${e.code}] ${e.message}`, "err");
+  }
+}
+
+// 录音 → 编码为 16k mono PCM_16 WAV blob ----------------------------------
+let spRecCtx = null;
+let spRecStream = null;
+let spRecChunks = [];
+let spRecTimer = null;
+let spRecTargetId = null; // null=新注册；UUID=追加样本到该 speaker
+let spRecTargetName = null;
+
+$("sp-source").onchange = () => {
+  const v = $("sp-source").value;
+  $("sp-rec-start").style.display = v === "record" ? "" : "none";
+  $("sp-rec-stop").style.display  = v === "record" ? "" : "none";
+  $("sp-upload-btn").style.display = v === "file" ? "" : "none";
+};
+
+$("sp-rec-start").onclick = async () => { startRecording(null, null); };
+$("sp-upload-btn").onclick = () => $("sp-file").click();
+$("sp-file").onchange = async (ev) => {
+  const f = ev.target.files && ev.target.files[0];
+  ev.target.value = "";
+  if (!f) return;
+  await submitFile(f, spRecTargetId, spRecTargetName || $("sp-name").value.trim());
+};
+$("sp-refresh").onclick = loadSpeakers;
+$("sp-rec-stop").onclick = () => stopRecording();
+
+function addSampleFlow(id, name) {
+  spRecTargetId = id;
+  spRecTargetName = name;
+  showToast(`追加样本到 "${name}"：选择"现场录音"或"上传文件"。`, "info");
+  // 滚到顶部表单
+  document.querySelector("#pane-speakers .card").scrollIntoView({ behavior: "smooth" });
+}
+
+async function startRecording(_targetId, _targetName) {
+  if (!spRecTargetId && !$("sp-name").value.trim()) {
+    showToast("先填显示名再录音。", "err"); return;
+  }
+  hideToast();
+  try {
+    spRecStream = await navigator.mediaDevices.getUserMedia({
+      audio: { sampleRate: 16000, channelCount: 1, echoCancellation: true, noiseSuppression: true },
+    });
+  } catch (e) {
+    showToast("麦克风不可用：" + e.message, "err"); return;
+  }
+  spRecCtx = new AudioContext({ sampleRate: 16000 });
+  const src = spRecCtx.createMediaStreamSource(spRecStream);
+  const proc = spRecCtx.createScriptProcessor(4096, 1, 1);
+  src.connect(proc);
+  proc.connect(spRecCtx.destination);
+  spRecChunks = [];
+  const tStart = performance.now();
+  proc.onaudioprocess = (e) => {
+    spRecChunks.push(new Float32Array(e.inputBuffer.getChannelData(0)));
+  };
+  $("sp-rec-start").disabled = true;
+  $("sp-rec-stop").disabled = false;
+  spRecMeta.innerHTML = `<span class="rec-dot"></span>录音中 0.0s`;
+  spRecTimer = setInterval(() => {
+    const sec = (performance.now() - tStart) / 1000;
+    spRecMeta.innerHTML = `<span class="rec-dot"></span>录音中 ${sec.toFixed(1)}s`;
+  }, 200);
+}
+
+async function stopRecording() {
+  if (!spRecCtx) return;
+  if (spRecTimer) { clearInterval(spRecTimer); spRecTimer = null; }
+  spRecStream.getTracks().forEach((t) => t.stop());
+  await spRecCtx.close();
+  spRecCtx = null; spRecStream = null;
+  $("sp-rec-start").disabled = false;
+  $("sp-rec-stop").disabled = true;
+
+  const total = spRecChunks.reduce((n, c) => n + c.length, 0);
+  if (total < 16000 * 1) {
+    showToast("录音过短（&lt;1s），已丢弃。", "err");
+    spRecMeta.textContent = ""; return;
+  }
+  const merged = new Float32Array(total);
+  let off = 0;
+  for (const c of spRecChunks) { merged.set(c, off); off += c.length; }
+  spRecChunks = [];
+  const dur = (total / 16000).toFixed(1);
+  spRecMeta.textContent = `录音 ${dur}s，编码 WAV…`;
+
+  const wavBlob = encodeWav(merged, 16000);
+  await submitBlob(
+    wavBlob,
+    `record-${Date.now()}.wav`,
+    spRecTargetId,
+    spRecTargetName || $("sp-name").value.trim(),
+  );
+}
+
+async function submitFile(file, targetId, name) {
+  spRecMeta.textContent = `上传 ${file.name}…`;
+  await submitBlob(file, file.name, targetId, name);
+}
+
+async function submitBlob(blob, fname, targetId, name) {
+  hideToast();
+  const apiKey = $("apikey").value.trim();
+  if (!apiKey) { showToast("先填 API Key", "err"); return; }
+  if (!targetId && !name) { showToast("请填显示名", "err"); return; }
+
+  const fd = new FormData();
+  fd.append("audio_file", blob, fname);
+  let path;
+  if (targetId) {
+    path = `/v1/speakers/${targetId}/samples`;
+  } else {
+    fd.append("name", name);
+    const consent = $("sp-consent").value.trim();
+    if (consent) fd.append("consent_source", consent);
+    path = "/v1/speakers";
+  }
+
+  try {
+    const resp = await fetch(httpBase() + path, {
+      method: "POST",
+      headers: { "Authorization": "Bearer " + apiKey },
+      body: fd,
+    });
+    const payload = await resp.json().catch(() => ({}));
+    if (!resp.ok) {
+      const code = payload.detail?.code || ("HTTP_" + resp.status);
+      const msg = payload.detail?.message || resp.statusText;
+      let extra = "";
+      const m = /sample rejected: (\w+)/.exec(msg);
+      if (m) extra = "  → " + reasonZh(m[1]);
+      showToast(`[${code}] ${msg}${extra}`, "err");
+      return;
+    }
+    const verb = targetId ? "追加样本" : "注册";
+    showToast(
+      `${verb}成功：${payload.name}（样本数 ${payload.sample_count}，SNR ${payload.snr_db_avg?.toFixed?.(1) ?? "—"} dB）`,
+      "ok",
+    );
+    spRecMeta.textContent = "";
+    spRecTargetId = null; spRecTargetName = null;
+    if (!targetId) { $("sp-name").value = ""; }
+    loadSpeakers();
+  } catch (e) {
+    showToast("网络错误：" + e.message, "err");
+  }
+}
+
+// 16k mono float32 → WAV (PCM_16) blob
+function encodeWav(samples, sr) {
+  const len = samples.length;
+  const buf = new ArrayBuffer(44 + len * 2);
+  const v = new DataView(buf);
+  const writeStr = (off, s) => { for (let i = 0; i < s.length; i++) v.setUint8(off + i, s.charCodeAt(i)); };
+  writeStr(0, "RIFF");
+  v.setUint32(4, 36 + len * 2, true);
+  writeStr(8, "WAVE");
+  writeStr(12, "fmt ");
+  v.setUint32(16, 16, true);          // fmt chunk size
+  v.setUint16(20, 1, true);           // PCM
+  v.setUint16(22, 1, true);           // mono
+  v.setUint32(24, sr, true);
+  v.setUint32(28, sr * 2, true);      // byte rate
+  v.setUint16(32, 2, true);           // block align
+  v.setUint16(34, 16, true);          // bits per sample
+  writeStr(36, "data");
+  v.setUint32(40, len * 2, true);
+  let off = 44;
+  for (let i = 0; i < len; i++, off += 2) {
+    let s = Math.max(-1, Math.min(1, samples[i]));
+    v.setInt16(off, s < 0 ? s * 0x8000 : s * 0x7fff, true);
+  }
+  return new Blob([buf], { type: "audio/wav" });
+}
+// =========================================================================
+// 离线转写
+// =========================================================================
+const offlineLog = $("offline-log");
+const offlineMeta = $("offline-meta");
+const offlineToast = $("offline-toast");
+
+function showOfflineToast(msg, kind) {
+  offlineToast.style.display = "block";
+  offlineToast.className = "toast " + (kind || "err");
+  offlineToast.textContent = msg;
+}
+
+$("offline-start").onclick = async () => {
+  const file = $("offline-file").files && $("offline-file").files[0];
+  if (!file) { showOfflineToast("请先选择音频文件", "err"); return; }
+
+  const apiKey = $("apikey").value.trim();
+  if (!apiKey) { showOfflineToast("请先填 API Key", "err"); return; }
+
+  offlineLog.innerHTML = "";
+  offlineMeta.textContent = "转写中...";
+  $("offline-start").disabled = true;
+  offlineToast.style.display = "none";
+
+  try {
+    const fd = new FormData();
+    fd.append("file", file);
+    fd.append("language", $("offline-lang").value);
+
+    const t0 = performance.now();
+    const resp = await fetch(httpBase() + "/v1/transcribe/file", {
+      method: "POST",
+      headers: { "Authorization": "Bearer " + apiKey },
+      body: fd,
+    });
+    const data = await resp.json();
+    const dt = ((performance.now() - t0) / 1000).toFixed(1);
+
+    if (!resp.ok) {
+      const code = data.detail?.code || ("HTTP_" + resp.status);
+      showOfflineToast(`[${code}] ${data.detail?.message || resp.statusText}`, "err");
+      return;
+    }
+
+    offlineMeta.textContent = `${file.name} ${data.duration_s?.toFixed(1)}s / ${data.sentences.length}句 / ${dt}s`;
+    showOfflineToast("转写完成", "ok");
+
+    for (const s of data.sentences) {
+      const badge = MTRender.speakerBadge(s);
+      const div = document.createElement("div");
+      div.className = "line final";
+      div.innerHTML = badge + MTRender.escHtml(s.text);
+      offlineLog.appendChild(div);
+    }
+  } catch (e) {
+    showOfflineToast("网络错误：" + e.message, "err");
+  } finally {
+    $("offline-start").disabled = false;
+  }
 };
 </script>
 </body>

@@ -10,8 +10,11 @@ import pytest
 
 
 @pytest.fixture
-def tmp_yaml(tmp_path: Path) -> Iterator[Path]:
-    """构造一个最小可用 yaml，并通过 MT_CONFIG_FILE 暴露给 loader。"""
+def tmp_yaml(tmp_path: Path, monkeypatch: pytest.MonkeyPatch) -> Iterator[Path]:
+    """构造一个最小可用 yaml，并通过 MT_CONFIG_FILE 暴露给 loader。
+
+    切换 cwd 到 tmp_path，避免 pydantic-settings 自动读到仓库 .env。
+    """
     cfg = tmp_path / "meet-transcribe.yaml"
     cfg.write_text(
         """
@@ -22,6 +25,7 @@ database:
         """.strip(),
         encoding="utf-8",
     )
+    monkeypatch.chdir(tmp_path)
     prev = os.environ.get("MT_CONFIG_FILE")
     os.environ["MT_CONFIG_FILE"] = str(cfg)
 

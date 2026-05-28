@@ -10,7 +10,6 @@
 from __future__ import annotations
 
 import logging
-import sys
 from typing import Any
 
 import structlog
@@ -41,14 +40,32 @@ def _redact_processor(
     return event_dict
 
 
+def _add_logger_name(
+    logger: Any, _name: str, event_dict: dict[str, Any]
+) -> dict[str, Any]:
+    name = getattr(logger, "name", None)
+    if name:
+        event_dict.setdefault("logger", name)
+    return event_dict
+
+
+def _add_log_level(
+    _logger: Any, method_name: str, event_dict: dict[str, Any]
+) -> dict[str, Any]:
+    if method_name == "warn":
+        method_name = "warning"
+    event_dict.setdefault("level", method_name)
+    return event_dict
+
+
 def init_logging(level: str = "INFO", fmt: str = "json") -> None:
     """初始化 structlog；只应在进程启动时调用一次。"""
 
     timestamper = structlog.processors.TimeStamper(fmt="iso", utc=True)
     shared: list[Any] = [
         structlog.contextvars.merge_contextvars,
-        structlog.stdlib.add_log_level,
-        structlog.stdlib.add_logger_name,
+        _add_log_level,
+        _add_logger_name,
         timestamper,
         _redact_processor,
         structlog.processors.StackInfoRenderer(),
@@ -66,8 +83,8 @@ def init_logging(level: str = "INFO", fmt: str = "json") -> None:
             getattr(logging, level.upper(), logging.INFO)
         ),
         context_class=dict,
-        logger_factory=structlog.PrintLoggerFactory(file=sys.stdout),
-        cache_logger_on_first_use=True,
+        logger_factory=structlog.PrintLoggerFactory(),
+        cache_logger_on_first_use=False,
     )
 
 

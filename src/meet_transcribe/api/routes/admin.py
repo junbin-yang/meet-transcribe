@@ -24,7 +24,10 @@ router = APIRouter(tags=["admin"])
 
 
 def require_admin(x_admin_token: str | None = Header(default=None)) -> None:
-    expected = os.environ.get("MT_ADMIN_TOKEN")
+    cfg = load_config()
+    expected = cfg.secrets.admin_token.get_secret_value() or os.environ.get(
+        "MT_ADMIN_TOKEN", ""
+    )
     if not expected:
         raise APIError("INTERNAL", "admin token not configured")
     if not x_admin_token or x_admin_token != expected:

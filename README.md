@@ -15,21 +15,36 @@ MVP 阶段。详见 v2 设计文档 `docs/design-v2.md`。
 py -3.11 -m venv .venv
 source .venv/Scripts/activate
 
-# 2. 安装依赖（在线）
+# 2. 拉取 vendored WhisperLiveKit + 安装依赖（在线）
+git submodule update --init --recursive
 pip install -e ".[dev]"
 
 # 3. 起本地 PostgreSQL + pgvector，落 schema
 psql -U postgres -f deploy/scripts/init_schema.sql
 
-# 4. 复制配置模板
+# 4. 复制配置模板，并准备 .env（不入库）
 cp configs/meet-transcribe.example.yaml configs/meet-transcribe.yaml
+cat > .env <<'EOF'
+MT_DB_PASSWORD=<32+ urlsafe>
+MT_SERVER_SECRET=<32+ urlsafe>
+MT_KMS_KEY=<base64 32B>
+MT_ADMIN_TOKEN=<32+ urlsafe>
+PYTORCH_CUDA_ALLOC_CONF=expandable_segments:True
+EOF
+chmod 600 .env
 
-# 5. 启动开发服务
-uvicorn meet_transcribe.api.app:app --reload --port 8080
+# 5. 启动开发服务（Windows 用 run_cli，自动设置 selector loop）
+.venv/Scripts/python.exe -m uvicorn meet_transcribe.api.app:app \
+  --host 127.0.0.1 --port 18080 --loop asyncio
 
-# 6. 打开 Web Demo
-# 浏览器访问 http://localhost:8080/demo
+# 6. 一键开通 demo 租户、签 API Key、换 ticket
+bash scripts/bootstrap-tenant.sh   # 输出写入 .scratch/
+
+# 7. 打开 Web Demo（http://localhost:18080/demo），粘贴 .scratch/ticket.txt
 ```
+
+> 首次连接 WebSocket 会触发 faster-whisper 下载 medium FP16 权重（约 1.5 GB），
+> 进度可在 uvicorn 日志中看到。下载结束后才会出现首条转写结果。
 
 ## 目录结构
 

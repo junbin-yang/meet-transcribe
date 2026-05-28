@@ -1,3 +1,0 @@
-[submodule "vendored/whisperlivekit"]
-	path = vendored/whisperlivekit
-	url = https://github.com/QuentinFuxa/WhisperLiveKit

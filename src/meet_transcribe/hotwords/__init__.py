@@ -1,1 +1,0 @@
-"""hotwords package."""

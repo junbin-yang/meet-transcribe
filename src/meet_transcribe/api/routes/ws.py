@@ -17,7 +17,8 @@ from meet_transcribe.auth.ticket import (
 )
 from meet_transcribe.config.loader import load_config
 from meet_transcribe.core.orchestrator import SessionOrchestrator, StartFrame
-from meet_transcribe.core.whisperlivekit_adapter import EngineSpec
+from meet_transcribe.core.funasr_adapter import FunASRSpec
+from meet_transcribe.db.session import get_session_factory
 from meet_transcribe.observability.logging import get_logger
 from meet_transcribe.observability.metrics import (
     ACTIVE_SESSIONS,
@@ -25,6 +26,7 @@ from meet_transcribe.observability.metrics import (
     ERRORS_TOTAL,
     SESSIONS_TOTAL,
 )
+from meet_transcribe.speakers.resolver import SpeakerResolver
 
 router = APIRouter()
 log = get_logger(__name__)
@@ -32,16 +34,32 @@ log = get_logger(__name__)
 WS_CLOSE_AUTH_FAIL = status.WS_1008_POLICY_VIOLATION
 
 
-def _engine_spec_from_cfg() -> EngineSpec:
+def _engine_spec_from_cfg() -> FunASRSpec:
     cfg = load_config()
-    return EngineSpec(
+    return FunASRSpec(
         model=cfg.asr.model,
-        language=cfg.asr.language,
-        compute_type=cfg.asr.compute_type,
         device=cfg.asr.device,
-        diarization=cfg.diarization.enabled,
-        vad=cfg.streaming.vad_enabled,
-        pcm_input=True,
+        language=cfg.asr.language,
+    )
+
+
+def _build_resolver_if_enabled(
+    tenant_id: Any, cfg: Any
+) -> SpeakerResolver | None:
+    if not cfg.diarization.enabled:
+        log.info("ws.resolver.disabled")
+        return None
+    try:
+        factory = get_session_factory()
+    except RuntimeError:
+        log.warning("ws.resolver.db_uninitialized")
+        return None
+    log.info("ws.resolver.created", tenant_id=str(tenant_id))
+    return SpeakerResolver(
+        tenant_id=tenant_id,
+        threshold=cfg.speakers.match_threshold,
+        embedding_model=cfg.speakers.embedding_model,
+        session_factory=factory,
     )
 
 
@@ -87,15 +105,23 @@ async def ws_transcribe(ws: WebSocket, ticket: str = Query("")) -> None:
             tenant_id=tenant_id,
             engine_spec=_engine_spec_from_cfg(),
             start=start_frame,
+            resolver=_build_resolver_if_enabled(tenant_id, cfg),
         )
 
         send_task = asyncio.create_task(_pump_outgoing(ws, orchestrator))
         try:
             await _pump_incoming(ws, orchestrator)
         finally:
-            send_task.cancel()
+            # 客户端发了 end（或断开），先停上游让 generator 自然走完最后一批
+            # partial，再给 send_task 几秒把队列排干，最后兜底 cancel。
             with _Suppress():
-                await send_task
+                await orchestrator.stop()
+            try:
+                await asyncio.wait_for(send_task, timeout=5)
+            except asyncio.TimeoutError:
+                send_task.cancel()
+                with _Suppress():
+                    await send_task
     except asyncio.TimeoutError:
         outcome = "timeout"
         await _send_error(ws, "VALIDATION_FAILED", "no start frame")
@@ -125,22 +151,26 @@ def _parse_start_frame(received: dict[str, Any]) -> StartFrame | None:
     if data.get("type") != "start":
         return None
     return StartFrame(
-        language=str(data.get("language") or "zh"),
+        language=str(data.get("language") or "auto"),
         hotwords=list(data.get("hotwords") or []),
         session_hint=data.get("session_hint"),
         speaker_set=data.get("speaker_set"),
+        model=data.get("model"),
     )
 
 
 async def _pump_incoming(ws: WebSocket, orch: SessionOrchestrator) -> None:
+    log.info("pump.incoming.start", session_id=str(orch.session_id))
     while True:
         msg = await ws.receive()
         kind = msg.get("type")
         if kind == "websocket.disconnect":
+            log.info("pump.incoming.disconnect")
             return
         if kind != "websocket.receive":
             continue
         if (b := msg.get("bytes")) is not None:
+            log.info("pump.incoming.bytes", nbytes=len(b))
             await orch.feed(b)
             continue
         if (t := msg.get("text")) is not None:
@@ -153,8 +183,16 @@ async def _pump_incoming(ws: WebSocket, orch: SessionOrchestrator) -> None:
 
 
 async def _pump_outgoing(ws: WebSocket, orch: SessionOrchestrator) -> None:
-    async for evt in orch.stream():
-        await ws.send_text(json.dumps({"type": evt.type, **evt.payload}, ensure_ascii=False))
+    try:
+        async for evt in orch.stream():
+            await ws.send_text(
+                json.dumps({"type": evt.type, **evt.payload}, ensure_ascii=False)
+            )
+    except asyncio.CancelledError:
+        raise
+    except Exception:
+        log.exception("ws pump_outgoing crashed")
+        raise
 
 
 async def _send_error(ws: WebSocket, code: str, message: str) -> None:

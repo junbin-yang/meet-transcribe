@@ -44,6 +44,13 @@ def get_engine() -> AsyncEngine:
     return _engine
 
 
+def get_session_factory() -> async_sessionmaker[AsyncSession]:
+    """返回模块级 sessionmaker；供需要在请求作用域外开会话的组件使用。"""
+    if _session_factory is None:
+        raise RuntimeError("DB engine not initialized")
+    return _session_factory
+
+
 async def get_db() -> AsyncIterator[AsyncSession]:
     """FastAPI 依赖：每次请求一个 session。"""
     if _session_factory is None:

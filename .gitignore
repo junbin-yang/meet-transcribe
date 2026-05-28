@@ -57,3 +57,6 @@ models/
 
 # Vendored sources fetched at install time, not committed
 vendored/whisperlivekit/.git/
+
+# Local scratch files (api keys, ad-hoc artifacts)
+.scratch/

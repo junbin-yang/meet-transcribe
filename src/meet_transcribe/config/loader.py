@@ -36,6 +36,7 @@ class ASRConfig(BaseModel):
     language: str = "zh"
     beam_size: int = Field(default=5, ge=1, le=10)
     itn_enabled: bool = False
+    text_postprocess: Literal["none", "t2s", "s2t"] = "t2s"
 
 
 class StreamingConfig(BaseModel):
@@ -46,7 +47,7 @@ class StreamingConfig(BaseModel):
 
 class DiarizationConfig(BaseModel):
     enabled: bool = False
-    backend: Literal["sortformer", "diart"] = "sortformer"
+    backend: Literal["sortformer", "diart", "passthrough"] = "sortformer"
     num_speakers_max: int = Field(default=6, ge=1, le=20)
 
 
@@ -101,6 +102,7 @@ class _Secrets(BaseSettings):
     db_password: SecretStr = SecretStr("")
     server_secret: SecretStr = SecretStr("")
     kms_key: SecretStr = SecretStr("")
+    admin_token: SecretStr = SecretStr("")
 
 
 class AppConfig(BaseModel):
