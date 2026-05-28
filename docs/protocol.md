@@ -1,16 +1,12 @@
-# meet-transcribe WebSocket 协议规范（草稿）
+# meet-transcribe WebSocket 协议规范
 
-适用版本：v0.x（M0–M3）。M4 起作为对外正式契约固定。
-
-源头：`docs/design-v2.md` 第 4.3、第 13 节。本文档把协议规范从设计文档单独拆出，便于上层会议系统集成方对接。
-
----
+版本：v1.0 | 对外正式契约 | 2026-05-28
 
 ## 1. 鉴权
 
 两步式：HTTP 换 ticket → WebSocket 携带 ticket。
 
-### 1.1 HTTP 换 ticket
+### 1.1 换取 ticket
 
 ```
 POST /v1/auth/ticket
@@ -23,10 +19,10 @@ Content-Type: application/json
 返回：
 
 ```json
-{ "ticket": "tk_xxxxxxxxxxxxxxxx", "expires_in": 30 }
+{ "ticket": "tk_xxxxxxxxxxxxxxxx", "expires_in": 300 }
 ```
 
-ticket：一次性、TTL 30s、签名包含 `tenant_id` + 过期时间，HMAC-SHA256(MT_SERVER_SECRET)。
+ticket 一次性，TTL 300s，HMAC-SHA256(MT_SERVER_SECRET) 签名，内含 tenant_id + 过期时间。
 
 ### 1.2 WebSocket 连接
 
@@ -35,124 +31,117 @@ GET /v1/ws/transcribe?ticket=tk_xxxxxxxxxxxxxxxx
 Upgrade: websocket
 ```
 
-握手时校验 ticket，**不接受** `Sec-WebSocket-Protocol: bearer.*` 携带 API Key（v1 设计已废弃，避免代理日志泄露）。
+握手时校验 ticket。失败返回 `code=AUTH_FAIL`。
 
-校验失败返回 4401，并通过 close frame 携带 `code=AUTH_FAIL`。
+## 2. 入站帧
 
----
-
-## 2. 帧格式
-
-### 2.1 入站
-
-第一帧：JSON 控制帧（文本帧）
+**第一帧** — JSON 控制帧：
 
 ```json
 {
   "type": "start",
-  "session_id": "optional-client-side-id",
-  "language": "zh",
-  "hotwords": ["千兆星瑞云"],
-  "speaker_set": "meeting-room-7"
+  "language": "auto",
+  "model": null
 }
 ```
 
-后续：二进制帧，16kHz mono PCM16 little-endian，每帧 ≤ 64KiB。
+| 字段 | 必填 | 说明 |
+|------|------|------|
+| `type` | 是 | `"start"` |
+| `language` | 否 | `"auto"` / `"zh"` / `"en"`，默认 `"auto"` |
+| `model` | 否 | 覆盖配置的模型档位，`null` 使用默认 |
 
-可选控制帧：
+**后续帧** — 二进制帧：16kHz mono PCM16 little-endian，每帧任意大小。
 
-- `{"type":"pause"}` 暂停推理
-- `{"type":"resume"}` 恢复
-- `{"type":"end"}` 结束会话；服务端写完最后 final 后关连接
-- `{"type":"hotwords","words":["..."]}` 会话中追加（M3 之后）
+**结束帧** — JSON 控制帧：
 
-### 2.2 出站
+```json
+{ "type": "end" }
+```
 
-#### partial（不稳定增量）
+## 3. 出站帧
+
+### partial（增量结果）
+
+每 500ms 推送一次，speaker 标签每 2s 更新一次。客户端应**覆盖**上次 partial。
 
 ```json
 {
   "type": "partial",
-  "seq": 17,
-  "stable_until": 12.34,
-  "text": "我们下周要发布",
-  "speaker": "S1",
-  "speaker_label": "张三?",
-  "confidence": 0.82
+  "text": "全文累积...",
+  "lines": [
+    {
+      "text": "今天要聊什么呀？",
+      "speaker": 2,
+      "start": 7.4,
+      "end": 9.1,
+      "speaker_resolved": {
+        "id": "550e8400-e29b-41d4-a716-446655440000",
+        "name": "张三",
+        "score": 0.9141
+      }
+    },
+    {
+      "text": "你对电影有什么...",
+      "speaker": 1,
+      "start": 10.4,
+      "end": 14.2
+    }
+  ],
+  "session_id": "uuid",
+  "seq": 17
 }
 ```
 
-`stable_until`：服务端承诺该时间点之前的内容稳定，不会再回撤。客户端应按 `seq` 覆盖前一条 partial。
+| 字段 | 说明 |
+|------|------|
+| `text` | 全文（累积） |
+| `lines` | 说话人轮次数组 |
+| `lines[].text` | 该轮次文本 |
+| `lines[].speaker` | 1-based speaker 编号 |
+| `lines[].start` / `end` | 秒，从会话起始计算 |
+| `lines[].speaker_resolved` | 声纹匹配结果，未匹配时不出现 |
+| `session_id` | 会话 UUID |
+| `seq` | 递增序号 |
 
-#### final（稳定）
-
-```json
-{
-  "type": "final",
-  "seq": 18,
-  "start": 10.50,
-  "end": 14.20,
-  "text": "我们下周要发布千兆星瑞云。",
-  "speaker": "S1",
-  "speaker_label": "张三",
-  "words": [
-    { "w": "我们", "s": 10.50, "e": 10.86 },
-    { "w": "下周", "s": 10.86, "e": 11.40 }
-  ]
-}
-```
-
-#### 心跳
+### error
 
 ```json
-{ "type": "ping", "ts": "2026-05-25T11:30:00Z" }
+{ "type": "error", "code": "ENGINE_TIMEOUT", "message": "engine failed" }
 ```
 
-服务端每 20s 发送一次；客户端可回 `{"type":"pong"}`。
+## 4. 错误码
 
-#### 错误
+| code | 含义 | 可恢复 |
+|------|------|--------|
+| `AUTH_FAIL` | ticket 无效或过期 | 否 |
+| `ENGINE_TIMEOUT` | 推理超时 | 是 |
+| `INTERNAL` | 内部错误 | 是 |
 
-```json
-{ "type": "error", "code": "RATE_LIMITED", "message": "tenant concurrent limit reached" }
-```
+## 5. 时间基准
 
----
+- `start` / `end` 单位秒，浮点
+- `t = 0` 为服务端收到第一个二进制音频帧的时刻
 
-## 3. 错误码
+## 6. 音频要求
 
-| code | 含义 | 是否可恢复 |
-|---|---|---|
-| `AUTH_FAIL` | ticket 无效或过期 | 否，重新换 ticket |
-| `RATE_LIMITED` | 租户并发或日配额超限 | 是，退避后重试 |
-| `AUDIO_FORMAT_INVALID` | 采样率/声道/编码不符 | 否，客户端修 |
-| `ENGINE_TIMEOUT` | 推理超时 | 是，自动重试 |
-| `QUOTA_EXCEEDED` | 当日分钟数耗尽 | 否，等到次日或扩容 |
-| `RESUME_REQUIRED` | 服务端断开后客户端要重连 | 是，发起新连接，复用 session_hint |
-| `INTERNAL` | 兜底，不暴露内部细节 | 是，可重试 |
+| 参数 | 值 |
+|------|-----|
+| 采样率 | 16000 Hz |
+| 声道 | mono |
+| 编码 | PCM int16 LE |
+| 帧大小 | 任意（推荐 < 64KB） |
 
-错误消息**不**包含 stacktrace、SQL 语句、内部路径。
+## 7. 说话人标签更新时序
 
----
+- 0-6s：`speaker` 均为 1（VAD 积累中）
+- 首次 SPK 完成后（6-10s）：出现多 speaker 标签
+- 每 2s 刷新标签
+- `speaker_resolved` 在声纹匹配后出现（≥ 3s 音频 + pgvector）
 
-## 4. 时间基
+## 8. 不在协议中（v1.0）
 
-- `start` / `end` / `stable_until` 单位为秒，浮点。
-- 起点 `t = 0` 是 WebSocket 收到第一个二进制音频帧的服务端时刻。
-- 客户端如需挂钟时间，使用 `final.created_at_iso`（M2 之后追加），而不是自己计算。
-
----
-
-## 5. ITN / 标点（MVP）
-
-- ITN（中文数字归一）M0–M3 **关闭**。"二零二六年" 不会自动转成 "2026 年"。
-- 标点由 Whisper 模型原生输出，质量随模型档位不同。
-- v1.1 起评估接 paraformer 或 funasr 的标点恢复模块。
-
----
-
-## 6. 不在协议中的行为（v0.x）
-
-- 不支持音频压缩格式（Opus/AAC）：客户端必须先解到 PCM16
-- 不支持 WebRTC：MVP 走原始 PCM over WebSocket
-- 不支持多语言识别自动切换：start 帧的 `language` 决定整段会话
-- 不返回声纹相似度分布，仅返回 `speaker_label` 与可选 `confidence`
+- 不支持音频压缩格式 — 客户端先解到 PCM16
+- 不支持 WebRTC
+- 不支持 pause / resume
+- 不返回 word-level 时间戳
