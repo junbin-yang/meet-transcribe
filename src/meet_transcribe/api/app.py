@@ -145,19 +145,25 @@ def metrics() -> Response:
 
 def run_cli() -> int:
     """`meet-transcribe` 入口。"""
+    import os
     import uvicorn
 
     cfg = load_config()
     if sys.platform == "win32":
         asyncio.set_event_loop_policy(asyncio.WindowsSelectorEventLoopPolicy())
 
+    ssl_keyfile = os.environ.get("MT_DEV_HTTPS_KEY")
+    ssl_certfile = os.environ.get("MT_DEV_HTTPS_CERT")
+
     uvicorn.run(
         "meet_transcribe.api.app:app",
-        host=cfg.server.host,
-        port=cfg.server.port,
+        host=os.environ.get("MT_SERVER_HOST", cfg.server.host),
+        port=int(os.environ.get("MT_SERVER_PORT", str(cfg.server.port))),
         workers=cfg.server.workers,
         log_level=cfg.observability.log_level.lower(),
         loop="asyncio" if sys.platform == "win32" else "auto",
+        ssl_keyfile=ssl_keyfile,
+        ssl_certfile=ssl_certfile,
     )
     return 0
 

@@ -29,8 +29,6 @@ MT_ADMIN_TOKEN=<32+ chars>
 
 ## 4. 启动
 
-电脑重启后：
-
 ```bash
 # 1. 确保 PostgreSQL 运行中（通常开机自启）
 pg_isready -U postgres
