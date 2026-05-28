@@ -114,5 +114,6 @@ python -m pytest tests/ --cov=src       # 覆盖率
 | 文档 | 读者 |
 |------|------|
 | [API 对接文档](docs/api.md) | 第三方集成方 |
+| [管理 API](docs/admin-api.md) | 运维人员 |
 | [Ubuntu 部署指南](docs/deploy-ubuntu.md) | 运维人员 |
 | [Windows 开发指南](docs/dev-windows.md) | 开发者 |
