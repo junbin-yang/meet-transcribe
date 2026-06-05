@@ -113,7 +113,7 @@ class AppConfig(BaseModel):
     speakers: SpeakersConfig = SpeakersConfig()
     hotwords: HotwordsConfig = HotwordsConfig()
     security: SecurityConfig = SecurityConfig()
-    retention: RetentionConfig = RetentionConfig()
+    retention: RetentionConfig | None = None
     observability: ObservabilityConfig = ObservabilityConfig()
     gpu: GPUConfig = GPUConfig()
     secrets: _Secrets = Field(default_factory=_Secrets)

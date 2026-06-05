@@ -1,6 +1,6 @@
 # meet-transcribe
 
-会议场景实时语音转写后端服务（B2B 私有化部署）。
+会议场景实时语音转写服务（B2B 私有化部署）。
 
 FunASR 引擎统一处理 ASR + 说话人分离 + 声纹识别，pgvector 做声纹匹配，
 FastAPI + WebSocket 提供实时流式转写和离线批转写 API。
