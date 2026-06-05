@@ -117,3 +117,12 @@ python -m pytest tests/ --cov=src       # 覆盖率
 | [管理 API](docs/admin-api.md) | 运维人员 |
 | [Ubuntu 部署指南](docs/deploy-ubuntu.md) | 运维人员 |
 | [Windows 开发指南](docs/dev-windows.md) | 开发者 |
+
+
+## Web Demo 测试
+
+![声纹注册](./docs/images/voiceprint.png "声纹注册") 
+
+![声纹识别](./docs/images/recognition.png "声纹识别") 
+
+![实时转写](./docs/images/transcription.png "实时转写") 
