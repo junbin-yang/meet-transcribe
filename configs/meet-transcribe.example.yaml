@@ -17,14 +17,15 @@ database:
   echo: false
 
 asr:
-  # 模型选择：large-v3-turbo / medium / small
-  # M0 在 8GB GPU 上使用 medium
-  model: "medium"
+  # 模型档位：large / paraformer-zh / ModelScope ID
+  # large: paraformer-zh (~944MB disk, ~1.5GB GPU)
+  model: "large"
   device: "cuda"
   compute_type: "float16"   # float16 / int8_float16 / int8
   language: "zh"
   beam_size: 5
   itn_enabled: false        # MVP: 关闭 ITN（中文数字归一）
+  text_postprocess: "t2s"   # 繁→简 / "none" / "s2t"
 
 streaming:
   # WhisperStreaming (LocalAgreement) 的关键参数
@@ -33,9 +34,9 @@ streaming:
   vad_threshold: 0.5
 
 diarization:
-  # M0 暂关；M2 打开
-  enabled: false
-  backend: "sortformer"     # sortformer / diart
+  # 给 internal speaker int，resolver 累计 ≥3s 触发 ECAPA + matcher。
+  enabled: true
+  backend: "passthrough"   # passthrough: 单 speaker=1, 无需 HF token；diart/sortformer 需 gated 模型
   num_speakers_max: 6
 
 speakers:
