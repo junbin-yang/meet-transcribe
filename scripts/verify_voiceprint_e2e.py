@@ -1,4 +1,4 @@
-"""M2b 真实端到端识别验证脚本。
+"""声纹识别 端到端识别验证脚本。
 
 场景：tenant 库里已经用 cc_ys1.wav 注册了一个名为 Tom 的声纹。
 本脚本用 cc_ys1_tts.wav（同一人的另一段语音）模拟实时流场景：
@@ -7,10 +7,10 @@
   2. resolver 路径：复用 SpeakerResolver.feed_audio / note_segment / trigger，
      模拟 orchestrator 在 diarization=True 下的真实调用链；断言 resolved=tom。
 
-不经 WebSocket，不依赖 Whisper 引擎，只验证 M2 阶段“人声识别”这一条链路。
+不经 WebSocket，不依赖 Whisper 引擎，只验证“人声识别”这一条链路。
 
 用法：
-    .venv/Scripts/python.exe scripts/m2b_verify.py \\
+    .venv/Scripts/python.exe scripts/verify_voiceprint_e2e.py \\
         --api-key $MT_TEST_API_KEY \\
         --query-wav tests/assets/cc_ys1_tts.wav \\
         --expect-name Tom \\
@@ -20,17 +20,6 @@
     0 = 两条路径都识别成功
     2 = 识别失败（未命中 / score 不达标）
     3 = 前置条件不满足（tenant 找不到 / Tom 未注册 / 音频解码失败）
-
-Fact-Forcing Gate facts:
-  1. Callers: 命令行 `python scripts/m2b_verify.py --api-key ... --query-wav ...`；
-     可选挂 CI M2 验收阶段
-  2. No duplicate: Glob scripts/m2b*.py → 无现存文件
-  3. Data fields: 读 tests/assets/*.wav；查 speakers.{id,name,embedding,deleted_at}
-     和 api_keys.{key_hash,revoked_at,tenant_id}；
-     输出 JSON {direct: {name,score}, resolver: {id,name,score}, passed:bool}
-  4. User verbatim: "当前数据库中已经保存了一个tom的声纹，使用的是tests\\assets\\cc_ys1.wav
-     作为声纹素材，还有一个cc_ys1_tts.wav则是同一个人的另外一段语音。这2个素材可以作为
-     测试数据。验证M2阶段这个人声识别的功能。"
 """
 
 from __future__ import annotations

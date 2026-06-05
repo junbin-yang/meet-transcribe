@@ -1,7 +1,7 @@
-"""M2a 验收脚本：注册 + top-1 准确率测试。
+"""声纹识别验收脚本：注册 + top-1 准确率测试。
 
 用法：
-    python scripts/m2a_verify.py \
+    python scripts/verify_speaker_enrollment.py \
         --enroll-dir data/aishell4/enroll \
         --query-dir  data/aishell4/query \
         --base-url http://127.0.0.1:8080 \
@@ -21,12 +21,6 @@
 输出：
     最后一行打印 JSON {n_speakers, total_queries, correct, top1_accuracy,
                        threshold, per_speaker: {name: {n, correct}}}
-
-Fact-Forcing Gate facts:
-  1. Callers: 命令行 `python scripts/m2a_verify.py --enroll-dir ... --query-dir ...`
-  2. No duplicate: Glob scripts/*.py → 无现存 .py 文件
-  3. Data fields: 读取 <dir>/<speaker>/*.wav，输出 JSON {top1_accuracy 等}
-  4. User verbatim: 用户原话 "开始" — M2a 验收脚本（≥80% top-1）
 """
 
 from __future__ import annotations
