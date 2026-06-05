@@ -4,8 +4,8 @@
   - HNSW(m=16, ef_construction=64) 索引已在 init_schema.sql 第 43-45 行建好。
   - 余弦距离 = 1 - cosine_sim；pgvector 的 `<=>` 运算符就是余弦距离。
   - 仅当 sim >= match_threshold(默认 0.65) 才视为命中。
-  - LRU 缓存查询结果，key=(tenant_id, embedding_bytes)；M2a 离线注册阶段命中率低，
-    主要为 M2b 实时流准备（流式 tracker 会聚合 cluster 后再查询，命中率较高）。
+  - LRU 缓存查询结果，key=(tenant_id, embedding_bytes)；离线注册阶段命中率低，
+    主要为识别实时流准备（流式 tracker 会聚合 cluster 后再查询，命中率较高）。
 
 本模块对外纯函数，不持有 DB session；调用方注入 AsyncSession。
 """

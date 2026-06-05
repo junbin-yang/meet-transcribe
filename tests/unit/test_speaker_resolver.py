@@ -1,12 +1,6 @@
 """SpeakerResolver 单元测试：环形缓冲累计 / 触发阈值 / 缓存 / 多说话人。
 
 不接 DB / 不加载 ECAPA 模型：用 monkeypatch 替换 compute_embedding 与 match。
-
-Fact-Forcing Gate facts:
-  1. Callers: tests/unit/test_speaker_resolver.py（仅本文件，pytest 自动发现）
-  2. No duplicate: Glob tests/**/test_speaker*resolver*.py → 无现存文件
-  3. Data fields: 喂 PCM int16 bytes (16k mono) + (speaker:int, start:float, end:float)
-  4. User verbatim: "就安A+A进行" — A+A: upstream diart + per-speaker ≥3s 触发 ECAPA + matcher
 """
 
 from __future__ import annotations

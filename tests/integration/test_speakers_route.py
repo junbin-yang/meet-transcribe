@@ -1,14 +1,8 @@
 """/v1/speakers 路由的轻量集成测试。
 
 仅测试鉴权失败 / openapi 挂载这类无需真实 ECAPA / DB 的轻量行为；
-完整 E2E（端到端样本注册 → 匹配准确率）走 scripts/m2a_verify.py，
+完整 E2E（端到端样本注册 → 匹配准确率）走 scripts/verify_voiceprint_e2e.py，
 需要外部数据集（AISHELL-4 切片）+ 实际 PG 实例。
-
-Fact-Forcing Gate facts:
-  1. Callers: pytest 自动发现；手动 `pytest tests/integration/test_speakers_route.py --no-cov`
-  2. No duplicate: Glob tests/integration/test_speakers*.py → 无现存文件
-  3. Data fields: 用 fastapi.testclient.TestClient 发 multipart，不接触磁盘 / DB
-  4. User verbatim: 用户原话 "开始" — 推进 M2a #19 验收子任务
 """
 
 from __future__ import annotations
